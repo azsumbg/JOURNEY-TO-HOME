@@ -129,6 +129,9 @@ struct FIELDS
 dirs field_dir = dirs::stop;
 
 
+dll::DLLObject Ship{ nullptr };
+
+
 /////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -284,6 +287,11 @@ void InitGame()
     }
 
     field_dir = dirs::stop;
+    
+    ///////////////////////////////////////////
+
+    ClearHeap(&Ship);
+    Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
 
 }
 
@@ -498,6 +506,28 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+        }
+        break;
+
+    case WM_KEYDOWN:
+        if (pause || !Ship)break;
+        switch (wParam)
+        {
+        case VK_LEFT:
+            Ship->dir = dirs::left;
+            break;
+
+        case VK_RIGHT:
+            Ship->dir = dirs::right;
+            break;
+
+        case VK_UP:
+            Ship->dir = dirs::up;
+            break;
+
+        case VK_DOWN:
+            Ship->dir = dirs::down;
+            break;
         }
         break;
 
@@ -973,10 +1003,167 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         //////////////////////////////////////////////////////////////////
 
+        if (Field.Center && Field.Up && Field.Down && Field.Left && Field.Right && Ship)
+        {
+            switch (Ship->dir)
+            {
+            case dirs::stop:
+                field_dir = dirs::stop;
+                Field.Center->dir = dirs::stop;
+                Field.Up->dir = dirs::stop;
+                Field.Down->dir = dirs::stop;
+                Field.Left->dir = dirs::stop;
+                Field.Right->dir = dirs::stop;
+                break;
 
+            case dirs::left:
+                field_dir = dirs::right;
+                Field.Center->dir = dirs::right;
+                Field.Up->dir = dirs::right;
+                Field.Down->dir = dirs::right;
+                Field.Left->dir = dirs::right;
+                Field.Right->dir = dirs::right;
+                break;
 
+            case dirs::right:
+                field_dir = dirs::left;
+                Field.Center->dir = dirs::left;
+                Field.Up->dir = dirs::left;
+                Field.Down->dir = dirs::left;
+                Field.Left->dir = dirs::left;
+                Field.Right->dir = dirs::left;
+                break;
+   
+            case dirs::up:
+                field_dir = dirs::down;
+                Field.Center->dir = dirs::down;
+                Field.Up->dir = dirs::down;
+                Field.Down->dir = dirs::down;
+                Field.Left->dir = dirs::down;
+                Field.Right->dir = dirs::down;
+                break;
+ 
+            case dirs::down:
+                field_dir = dirs::up;
+                Field.Center->dir = dirs::up;
+                Field.Up->dir = dirs::up;
+                Field.Down->dir = dirs::up;
+                Field.Left->dir = dirs::up;
+                Field.Right->dir = dirs::up;
+                break;
+            }
 
+            if (field_dir == dirs::left)
+            {
+                Field.Left->Move(field_dir, (float)(level));
+                Field.Right->Move(field_dir, (float)(level));
+                Field.Center->Move(field_dir, (float)(level));
+                
+                if (Field.Center->end.x <= 0)
+                {
+                    ClearHeap(&Field.Left);
+                    Field.Left = Field.Center;
+                    Field.Center = Field.Right;
+                    switch (RandEngine(0, 2))
+                    {
+                    case 0:
+                        Field.Right = dll::ObjectFactory(type_field1, scr_width, 50.0f, NULL, NULL);
+                        break;
 
+                    case 1:
+                        Field.Right = dll::ObjectFactory(type_field2, scr_width, 50.0f, NULL, NULL);
+                        break;
+
+                    case 2:
+                        Field.Right = dll::ObjectFactory(type_field3, scr_width, 50.0f, NULL, NULL);
+                        break;
+                    }
+                }
+            }
+            if (field_dir == dirs::right)
+            {
+                Field.Left->Move(field_dir, (float)(level));
+                Field.Right->Move(field_dir, (float)(level));
+                Field.Center->Move(field_dir, (float)(level));
+                
+                if (Field.Center->start.x >= scr_width)
+                {
+                    ClearHeap(&Field.Right);
+                    Field.Right = Field.Center;
+                    Field.Center = Field.Left;
+                    switch (RandEngine(0, 2))
+                    {
+                    case 0:
+                        Field.Left = dll::ObjectFactory(type_field1, -scr_width, 50.0f, NULL, NULL);
+                        break;
+
+                    case 1:
+                        Field.Left = dll::ObjectFactory(type_field2, -scr_width, 50.0f, NULL, NULL);
+                        break;
+
+                    case 2:
+                        Field.Left = dll::ObjectFactory(type_field3, -scr_width, 50.0f, NULL, NULL);
+                        break;
+                    }
+                }
+            }
+            if (field_dir == dirs::up)
+            {
+                Field.Up->Move(field_dir, (float)(level));
+                Field.Down->Move(field_dir, (float)(level));
+                Field.Center->Move(field_dir, (float)(level));
+
+                if (Field.Center->end.y <= 50.0f)
+                {
+                    ClearHeap(&Field.Up);
+                    Field.Up = Field.Center;
+                    Field.Center = Field.Down;
+                    switch (RandEngine(0, 2))
+                    {
+                    case 0:
+                        Field.Down = dll::ObjectFactory(type_field1, 0, scr_height, NULL, NULL);
+                        break;
+
+                    case 1:
+                        Field.Down = dll::ObjectFactory(type_field2, 0, scr_height, NULL, NULL);
+                        break;
+
+                    case 2:
+                        Field.Down = dll::ObjectFactory(type_field3, 0, scr_height, NULL, NULL);
+                        break;
+                    }
+                }
+            }
+            if (field_dir == dirs::down)
+            {
+                Field.Up->Move(field_dir, (float)(level));
+                Field.Down->Move(field_dir, (float)(level));
+                Field.Center->Move(field_dir, (float)(level));
+
+                if (Field.Center->start.y >= ground)
+                {
+                    ClearHeap(&Field.Down);
+                    Field.Down = Field.Center;
+                    Field.Center = Field.Up;
+                    switch (RandEngine(0, 2))
+                    {
+                    case 0:
+                        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height, NULL, NULL);
+                        break;
+
+                    case 1:
+                        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height, NULL, NULL);
+                        break;
+
+                    case 2:
+                        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height, NULL, NULL);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (Ship)Ship->Move(Ship->dir, (float)(level));
 
 
 
@@ -989,26 +1176,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         // DRAW THINGS ***************************************************
 
         Draw->BeginDraw();
-
-        if (TxtBrush && HgltBrush && InactBrush && nrmFormat && b1BckgBrush && b2BckgBrush && b3BckgBrush)
-        {
-            Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1BckgBrush);
-            Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2BckgBrush);
-            Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3BckgBrush);
-
-            if (name_set) Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, InactBrush);
-            else
-            {
-                if (!b1Hglt)Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, TxtBrush);
-                else Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, HgltBrush);
-            }
-
-            if (!b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, TxtBrush);
-            else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, HgltBrush);
-        
-            if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
-            else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
-        }
 
         if (Field.Center && Field.Up && Field.Down && Field.Left && Field.Right)
         {
@@ -1098,7 +1265,64 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 break;
             }
         }
+        
+        if (TxtBrush && HgltBrush && InactBrush && nrmFormat && b1BckgBrush && b2BckgBrush && b3BckgBrush)
+        {
+            Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1BckgBrush);
+            Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2BckgBrush);
+            Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3BckgBrush);
 
+            if (name_set) Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, InactBrush);
+            else
+            {
+                if (!b1Hglt)Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, TxtBrush);
+                else Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, HgltBrush);
+            }
+
+            if (!b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, TxtBrush);
+            else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, HgltBrush);
+        
+            if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
+            else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
+        }
+
+        
+
+        if (Ship)
+        {
+            int curr_frame = Ship->GetFrame();
+            
+            switch (Ship->dir)
+            {
+            case dirs::right:
+                Draw->DrawBitmap(bmpShipR[curr_frame], Resizer(bmpShipR[curr_frame], Ship->start.x, Ship->start.y));
+                break;
+
+            case dirs::left:
+                Draw->DrawBitmap(bmpShipL[curr_frame], Resizer(bmpShipL[curr_frame], Ship->start.x, Ship->start.y));
+                break;
+
+            case dirs::up:
+                if (Ship->end.x < scr_width / 2)
+                    Draw->DrawBitmap(bmpShipR[curr_frame], Resizer(bmpShipR[curr_frame], Ship->start.x, Ship->start.y));
+                else Draw->DrawBitmap(bmpShipL[curr_frame], Resizer(bmpShipL[curr_frame], Ship->start.x, Ship->start.y));
+                break;
+
+            case dirs::down:
+                if (Ship->end.x < scr_width / 2)
+                    Draw->DrawBitmap(bmpShipR[curr_frame], Resizer(bmpShipR[curr_frame], Ship->start.x, Ship->start.y));
+                else Draw->DrawBitmap(bmpShipL[curr_frame], Resizer(bmpShipL[curr_frame], Ship->start.x, Ship->start.y));
+                break;
+
+            case dirs::stop:
+                if (Ship->end.x < scr_width / 2)
+                    Draw->DrawBitmap(bmpShipR[curr_frame], Resizer(bmpShipR[curr_frame], Ship->start.x, Ship->start.y));
+                else Draw->DrawBitmap(bmpShipL[curr_frame], Resizer(bmpShipL[curr_frame], Ship->start.x, Ship->start.y));
+                break;
+            }
+        }
+        
+        
         /////////////////////////////////////////////////////////////////
 
         Draw->EndDraw();
