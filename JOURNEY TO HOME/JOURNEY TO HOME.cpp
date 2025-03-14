@@ -232,15 +232,15 @@ void InitGame()
     switch (RandEngine(0, 2))
     {
     case 0:
-        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height + 50.0f, NULL, NULL);
+        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height + 100.0f, NULL, NULL);
         break;
 
     case 1:
-        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height + 50.0f, NULL, NULL);
+        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height + 100.0f, NULL, NULL);
         break;
 
     case 2:
-        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height + 50.0f, NULL, NULL);
+        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height + 100.0f, NULL, NULL);
         break;
     }
     switch (RandEngine(0, 2))
@@ -1148,15 +1148,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     switch (RandEngine(0, 2))
                     {
                     case 0:
-                        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height, NULL, NULL);
+                        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height + 100.0f, NULL, NULL);
                         break;
 
                     case 1:
-                        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height, NULL, NULL);
+                        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height + 100.0f, NULL, NULL);
                         break;
 
                     case 2:
-                        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height, NULL, NULL);
+                        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height + 100.0f, NULL, NULL);
                         break;
                     }
                 }
@@ -1165,7 +1165,29 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Ship)Ship->Move(Ship->dir, (float)(level));
 
-
+        if (Field.Center && Field.Up && Field.Down && Field.Left && Field.Right)
+        {
+            if (Field.Left->end.x < Field.Center->start.x)
+            {
+                Field.Left->start.x = Field.Center->start.x - scr_width;
+                Field.Left->SetEdges();
+            }
+            if (Field.Right->start.x > Field.Center->end.x)
+            {
+                Field.Right->start.x = Field.Center->end.x;
+                Field.Right->SetEdges();
+            }
+            if (Field.Up->end.y < Field.Center->start.y)
+            {
+                Field.Up->start.y = Field.Center->start.y - scr_height;
+                Field.Up->SetEdges();
+            }
+            if (Field.Down->start.y > Field.Center->end.y)
+            {
+                Field.Down->start.y = Field.Center->end.y;
+                Field.Down->SetEdges();
+            }
+        }
 
 
 
