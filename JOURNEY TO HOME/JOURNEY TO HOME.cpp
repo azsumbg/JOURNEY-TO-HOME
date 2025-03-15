@@ -128,9 +128,14 @@ struct FIELDS
 } Field;
 dirs field_dir = dirs::stop;
 
-
 dll::DLLObject Ship{ nullptr };
+std::vector<dll::DLLObject>vMeteors;
 
+std::vector<dll::DLLObject>vRockets;
+std::vector<dll::DLLObject>vExplosions;
+
+int rockets = 2;
+bool ship_killed = false;
 
 /////////////////////////////////////////////////
 
@@ -205,6 +210,8 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 180;
+
+    rockets = 2;
 
     wcscpy_s(current_player, L"ONE CAPTAIN");
     ////////////////////////////////////////////
@@ -293,6 +300,11 @@ void InitGame()
     ClearHeap(&Ship);
     Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
 
+    if (!vMeteors.empty())for (int i = 0; i < vMeteors.size(); ++i)ClearHeap(&vMeteors[i]);
+    vMeteors.clear();
+
+    if (!vRockets.empty())for (int i = 0; i < vRockets.size(); ++i)ClearHeap(&vRockets[i]);
+    vRockets.clear();
 }
 
 void GameOver()
@@ -638,7 +650,8 @@ void CreateResources()
                 Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Indigo), &TxtBrush);
                 Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Gold), &HgltBrush);
                 Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkSlateGray), &InactBrush);
-            
+                Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::MidnightBlue), &StatusBckgBrush);
+
                 if (hr != S_OK)
                 {
                     LogError(L"Error creating D2D1SolidColor brushes !");
@@ -1179,7 +1192,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
             if (Field.Up->end.y < Field.Center->start.y)
             {
-                Field.Up->start.y = Field.Center->start.y - scr_height;
+                Field.Up->start.y = Field.Center->start.y - 750.0f;
                 Field.Up->SetEdges();
             }
             if (Field.Down->start.y > Field.Center->end.y)
@@ -1189,11 +1202,98 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (vMeteors.size() <= level + 4 && RandEngine(0, 300) == 66)
+        {
+            switch (RandEngine(0, 4))
+            {
+            case 0:
+                vMeteors.push_back(dll::ObjectFactory(object_meteor1, (float)(RandEngine(50, 900)), 0,
+                    (float)(RandEngine(50, 900)), ground));
+                break;
 
+            case 1:
+                if (RandEngine(0, 5) == 3)
+                    vMeteors.push_back(dll::ObjectFactory(object_meteor2, (float)(RandEngine(50, 900)), ground,
+                        (float)(RandEngine(50, 900)), sky));
+                else vMeteors.push_back(dll::ObjectFactory(object_meteor2, scr_width + 50.0f, (float)(RandEngine(50, 600)),
+                            0, (float)(RandEngine(50, 600))));
+                break;
 
+            case 2:
+                if (RandEngine(0, 5) == 3)
+                    vMeteors.push_back(dll::ObjectFactory(object_meteor3, (float)(RandEngine(50, 900)), ground,
+                        (float)(RandEngine(50, 900)), sky));
+                else if (Ship)
+                {
+                    if (Ship->Xradius <= scr_width / 2)
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor3, -50.0f, (float)(RandEngine(50, 600)),
+                            (float)(RandEngine(50, 600)), (float)(RandEngine(50, 600))));
+                    else
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor3, scr_width + 50.0f, (float)(RandEngine(50, 600)),
+                            0, (float)(RandEngine(50, 600))));
+                }
+                break;
 
+            case 3:
+                if (RandEngine(0, 5) == 3)
+                    vMeteors.push_back(dll::ObjectFactory(object_meteor4, (float)(RandEngine(50, 900)), ground,
+                        (float)(RandEngine(50, 900)), sky));
+                else if (Ship)
+                {
+                    if (Ship->Xradius <= scr_width / 2)
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor4, -50.0f, (float)(RandEngine(50, 600)),
+                            (float)(RandEngine(50, 600)), (float)(RandEngine(50, 600))));
+                    else
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor4, scr_width + 50.0f, (float)(RandEngine(50, 600)),
+                            0, (float)(RandEngine(50, 600))));
+                }
+                break;
 
+            case 4:
+                if (RandEngine(0, 5) == 3)
+                    vMeteors.push_back(dll::ObjectFactory(object_meteor5, (float)(RandEngine(50, 900)), ground,
+                        (float)(RandEngine(50, 900)), sky));
+                else if (Ship)
+                {
+                    if (Ship->Xradius <= scr_width / 2)
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor5, -50.0f, (float)(RandEngine(50, 600)),
+                            (float)(RandEngine(50, 600)), (float)(RandEngine(50, 600))));
+                    else
+                        vMeteors.push_back(dll::ObjectFactory(object_meteor5, scr_width + 50.0f, (float)(RandEngine(50, 600)),
+                            0, (float)(RandEngine(50, 600))));
+                }
+                break;
+            }
+        }
 
+        if (!vMeteors.empty())
+        {
+            for (std::vector<dll::DLLObject>::iterator met = vMeteors.begin(); met < vMeteors.end(); ++met)
+            {
+                if (!(*met)->Move((float)(level)))
+                {
+                    (*met)->Release();
+                    vMeteors.erase(met);
+                    break;
+                }
+            }
+        }
+
+        if (Ship && !vMeteors.empty())
+        {
+            for (std::vector<dll::DLLObject>::iterator met = vMeteors.begin(); met < vMeteors.end(); ++met)
+            {
+                if ((abs((*met)->center.x - Ship->center.x) < (*met)->Xradius + Ship->Xradius)
+                    || (abs((*met)->center.y - Ship->center.y) < (*met)->Yradius + Ship->Yradius))
+                {
+                    ship_killed = true;
+                    vExplosions.push_back(dll::ObjectFactory(type_explosion, Ship->center.x, Ship->center.y, NULL, NULL));
+                    ClearHeap(&Ship);
+                    if (sound)mciSendStringW(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                    break;
+                }
+            }
+        }
 
         // DRAW THINGS ***************************************************
 
@@ -1201,6 +1301,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Field.Center && Field.Up && Field.Down && Field.Left && Field.Right)
         {
+            switch (Field.Center->GetType())
+            {
+            case type_field1:
+                Draw->DrawBitmap(bmpField1[Field.Center->GetFrame()], D2D1::RectF(0, 50.0f, scr_width, scr_height));                break;
+                break;
+
+            case type_field2:
+                Draw->DrawBitmap(bmpField2[Field.Center->GetFrame()], D2D1::RectF(0, 50.0f, scr_width, scr_height)); 
+                break;
+
+            case type_field3:
+                Draw->DrawBitmap(bmpField3[Field.Center->GetFrame()], D2D1::RectF(0, 50.0f, scr_width, scr_height)); 
+                break;
+            }
             switch (Field.Center->GetType())
             {
             case type_field1:
@@ -1288,6 +1402,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
         
+        Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), StatusBckgBrush);
+
         if (TxtBrush && HgltBrush && InactBrush && nrmFormat && b1BckgBrush && b2BckgBrush && b3BckgBrush)
         {
             Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1BckgBrush);
@@ -1307,8 +1423,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
             else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
         }
-
-        
 
         if (Ship)
         {
@@ -1344,7 +1458,55 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
         
+        if (!vMeteors.empty())
+        {
+            for (std::vector<dll::DLLObject>::iterator met = vMeteors.begin(); met < vMeteors.end(); ++met)
+            {
+                int aframe = (*met)->GetFrame();
+
+                switch ((*met)->GetType())
+                {
+                case object_meteor1:
+                    Draw->DrawBitmap(bmpMeteor1[aframe], Resizer(bmpMeteor1[aframe], (*met)->start.x, (*met)->start.y));
+                    break;
+
+                case object_meteor2:
+                    Draw->DrawBitmap(bmpMeteor2[aframe], Resizer(bmpMeteor2[aframe], (*met)->start.x, (*met)->start.y));
+                    break;
+
+                case object_meteor3:
+                    Draw->DrawBitmap(bmpMeteor3[aframe], Resizer(bmpMeteor3[aframe], (*met)->start.x, (*met)->start.y));
+                    break;
+
+                case object_meteor4:
+                    Draw->DrawBitmap(bmpMeteor4[aframe], Resizer(bmpMeteor4[aframe], (*met)->start.x, (*met)->start.y));
+                    break;
+
+                case object_meteor5:
+                    Draw->DrawBitmap(bmpMeteor5[aframe], Resizer(bmpMeteor5[aframe], (*met)->start.x, (*met)->start.y));
+                    break;
+                }
+            }
+        }
         
+        if (!vExplosions.empty())
+        {
+
+            for (std::vector<dll::DLLObject>::iterator expl = vExplosions.begin(); expl < vExplosions.end(); ++expl)
+            {
+                int aframe = (*expl)->GetFrame();
+
+                Draw->DrawBitmap(bmpExplosion[aframe], Resizer(bmpExplosion[aframe], (*expl)->start.x, (*expl)->start.y));
+                if (aframe == 22)
+                {
+                    (*expl)->Release();
+                    vExplosions.erase(expl);
+                    if (ship_killed)GameOver();
+                    break;
+                }
+            }
+        }
+
         /////////////////////////////////////////////////////////////////
 
         Draw->EndDraw();
