@@ -1320,6 +1320,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vMeteors.empty() && !vRockets.empty())
+        {
+            bool killed = false;
+            
+            for (std::vector<dll::DLLObject>::iterator met = vMeteors.begin(); met < vMeteors.end(); ++met)
+            {
+                for (std::vector<dll::DLLObject>::iterator bul = vRockets.begin(); bul < vRockets.end(); ++bul)
+                {
+                    if (!((*met)->start.x > (*bul)->end.x || (*met)->end.x < (*bul)->start.x
+                        || (*met)->start.y>(*bul)->end.y || (*met)->end.y < (*bul)->start.y))
+                    {
+                        if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                        vExplosions.push_back(dll::ObjectFactory(type_explosion, (*met)->center.x, (*met)->center.y, NULL, NULL));
+                        (*met)->Release();
+                        (*bul)->Release();
+                        vMeteors.erase(met);
+                        vRockets.erase(bul);
+                        score += 10 * level;
+                        killed = true;
+                        break;
+                    }
+                }
+
+                if (killed)break;
+            }
+        }
+
         // DRAW THINGS ***************************************************
 
         Draw->BeginDraw();
