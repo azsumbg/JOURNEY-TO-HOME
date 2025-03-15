@@ -543,6 +543,18 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         }
         break;
 
+    case WM_LBUTTONDOWN:
+        if (pause || !Ship)break;
+        if (rockets < 1)
+        {
+            if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+            break;
+        }
+        --rockets;
+        vRockets.push_back(dll::ObjectFactory(object_bullet, Ship->center.x, Ship->center.y,
+            (float)(LOWORD(lParam)), (float)(HIWORD(lParam))));
+        break;
+
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
     }
 
@@ -1279,12 +1291,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vRockets.empty())
+        {
+            for (std::vector<dll::DLLObject>::iterator bul = vRockets.begin(); bul < vRockets.end(); ++bul)
+            {
+                if (!(*bul)->Move((float)(level)))
+                {
+                    (*bul)->Release();
+                    vRockets.erase(bul);
+                    break;
+                }
+            }
+        }
+
         if (Ship && !vMeteors.empty())
         {
             for (std::vector<dll::DLLObject>::iterator met = vMeteors.begin(); met < vMeteors.end(); ++met)
             {
                 if ((abs((*met)->center.x - Ship->center.x) < (*met)->Xradius + Ship->Xradius)
-                    || (abs((*met)->center.y - Ship->center.y) < (*met)->Yradius + Ship->Yradius))
+                    && (abs((*met)->center.y - Ship->center.y) < (*met)->Yradius + Ship->Yradius))
                 {
                     ship_killed = true;
                     vExplosions.push_back(dll::ObjectFactory(type_explosion, Ship->center.x, Ship->center.y, NULL, NULL));
@@ -1487,6 +1512,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     break;
                 }
             }
+        }
+        
+        if (!vRockets.empty())
+        {
+            for (int i = 0; i < vRockets.size(); ++i)
+                Draw->DrawBitmap(bmpBullet, D2D1::RectF(vRockets[i]->start.x, vRockets[i]->start.y,
+                    vRockets[i]->end.x, vRockets[i]->end.y));
         }
         
         if (!vExplosions.empty())
