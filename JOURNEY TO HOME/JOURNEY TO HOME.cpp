@@ -307,14 +307,77 @@ void InitGame()
     if (!vRockets.empty())for (int i = 0; i < vRockets.size(); ++i)ClearHeap(&vRockets[i]);
     vRockets.clear();
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
 
+    int result = 0;
+    CheckFile(record_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+    else
+    {
+        std::wifstream check(record_file);
+        check >> result;
+        check.close();
+    }
+
+    if (result < score)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return record;
+    }
+
+    return no_record;
+}
 void GameOver()
 {
+    Draw->EndDraw();
     KillTimer(bHwnd, bTimer);
     PlaySound(NULL, NULL, NULL);
 
+    switch (CheckRecord())
+    {
+    case no_record:
+        Draw->BeginDraw();
+        Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+        Draw->DrawTextW(L"НЕ УСПЯ ДА СЕ ПРИБЕРЕШ !", 25, 
+            bigFormat, D2D1::RectF(20.0f, 200.0f, scr_width, scr_height), HgltBrush);
+        Draw->EndDraw();
+        if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_SYNC);
+        Sleep(3000);
+        break;
 
+    case first_record:
+        Draw->BeginDraw();
+        Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+        Draw->DrawTextW(L"ПЪРВИ РЕКОРД НА ИГРАТА !", 25,
+            bigFormat, D2D1::RectF(20.0f, 200.0f, scr_width, scr_height), HgltBrush);
+        Draw->EndDraw();
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+        Sleep(3000);
+        break;
 
+    case record:
+        Draw->BeginDraw();
+        Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+        Draw->DrawTextW(L"НОВ СВЕТОВЕН РЕКОРД !", 22,
+            bigFormat, D2D1::RectF(20.0f, 200.0f, scr_width, scr_height), HgltBrush);
+        Draw->EndDraw();
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+        Sleep(3000);
+        break;
+    }
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -362,7 +425,7 @@ void LevelUp()
                     if (intro_frame > 47)intro_frame = 0;
                 }
                 Draw->EndDraw();
-                Sleep(80);
+                Sleep(40);
             }
         }
 
@@ -485,6 +548,262 @@ void LevelUp()
     if (!vRockets.empty())for (int i = 0; i < vRockets.size(); ++i)ClearHeap(&vRockets[i]);
     vRockets.clear();
 }
+void HallOfFame()
+{
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма рекорд на играта !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    wchar_t stat_txt[200] = L"НАЙ-ДОБЪР В СВЕТА: ";
+    wchar_t saved_player[16] = L"\0";
+    wchar_t saved_score[5] = L"\0";
+
+    std::wifstream rec(record_file);
+    rec >> result;
+    wsprintf(saved_score, L"%d", result);
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+        rec >> letter;
+        saved_player[i] = static_cast<wchar_t>(letter);
+    }
+    rec.close();
+
+    wcscat_s(stat_txt, saved_player);
+    wcscat_s(stat_txt, L"\n\nСВЕТОВЕН РЕКОРД: ");
+    wcscat_s(stat_txt, saved_score);
+
+    result = 0;
+
+    for (int i = 0; i < 200; ++i)
+    {
+        if (stat_txt[i] != '\0')result++;
+        else break;
+    }
+
+    Draw->BeginDraw();
+    Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+    Draw->DrawTextW(stat_txt, result,
+        midFormat, D2D1::RectF(20.0f, 200.0f, scr_width, scr_height), HgltBrush);
+    Draw->EndDraw();
+    if (sound)PlaySound(L".\\res\\snd\\showrec.wav", NULL, SND_SYNC);
+    Sleep(3000);
+}
+void SaveGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+        if (MessageBox(bHwnd, L"Съществува предишна записана игра !\n\nПрезаписваш ли я ?",
+            L"Презапис ?", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wofstream save(save_file);
+
+    save << level << std::endl;
+    save << score << std::endl;
+    save << secs << std::endl;
+    save << mins << std::endl;
+    save << rockets << std::endl;
+    for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_set << std::endl;
+    
+    save << ship_killed << std::endl;
+    save << Ship->start.x << std::endl;
+    save << Ship->start.y << std::endl;
+
+    save << vMeteors.size() << std::endl;
+    if (!vMeteors.empty())
+    {
+        for (int i = 0; i < vMeteors.size(); ++i)
+        {
+            save << vMeteors[i]->start.x << std::endl;
+            save << vMeteors[i]->start.y << std::endl;
+            save << vMeteors[i]->GetType() << std::endl;
+        }
+    }
+
+    if (sound)mciSendString(L"olay .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    MessageBox(bHwnd, L"Играта е запазена!", L"Запис!", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+    int result = 0;
+
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+    else
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+        if (MessageBox(bHwnd, L"Настоящата игра ще бъде загубена!\n\nПрезаписваш ли я ?",
+            L"Презапис ?", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    if (Field.Center)ClearHeap(&Field.Center);
+    if (Field.Up)ClearHeap(&Field.Up);
+    if (Field.Down)ClearHeap(&Field.Down);
+    if (Field.Left)ClearHeap(&Field.Left);
+    if (Field.Right)ClearHeap(&Field.Right);
+
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Center = dll::ObjectFactory(type_field1, 0, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Center = dll::ObjectFactory(type_field2, 0, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Center = dll::ObjectFactory(type_field3, 0, 50.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Down = dll::ObjectFactory(type_field1, 0, scr_height, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Down = dll::ObjectFactory(type_field2, 0, scr_height + 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Down = dll::ObjectFactory(type_field3, 0, scr_height, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Left = dll::ObjectFactory(type_field1, -scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Left = dll::ObjectFactory(type_field2, -scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Left = dll::ObjectFactory(type_field3, -scr_width, 50.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Right = dll::ObjectFactory(type_field1, scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Right = dll::ObjectFactory(type_field2, scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Right = dll::ObjectFactory(type_field3, scr_width, 50.0f, NULL, NULL);
+        break;
+    }
+
+    field_dir = dirs::stop;
+
+    ///////////////////////////////////////////
+
+    ClearHeap(&Ship);
+    Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
+
+    if (!vMeteors.empty())for (int i = 0; i < vMeteors.size(); ++i)ClearHeap(&vMeteors[i]);
+    vMeteors.clear();
+
+    if (!vRockets.empty())for (int i = 0; i < vRockets.size(); ++i)ClearHeap(&vRockets[i]);
+    vRockets.clear();
+
+    ///////////////////////////////////////////
+
+    std::wifstream save(save_file);
+
+    save >> level;
+    save >> score;
+    save >> secs;
+    save >> mins;
+    save >> rockets;
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+        save >> letter;
+        current_player[i] = static_cast<wchar_t>(letter);
+    }
+    save >> name_set;
+
+    save >> ship_killed;
+    if (ship_killed)GameOver();
+    else
+    {
+        float tx = 0;
+        float ty = 0;
+
+        save >> tx;
+        save >> ty;
+
+        Ship = dll::ObjectFactory(object_ship, tx, ty, NULL, NULL);
+    }
+
+    save >> result;
+    if (result > 0)
+    {
+        for (int i = 0; i < result; ++i)
+        {
+            float tx = 0;
+            float ty = 0;
+            uint16_t ttype = 0;
+
+            save >> tx;
+            save >> ty;
+            save >> ttype;
+
+            switch (RandEngine(0, 1))
+            {
+            case 0:
+                if (Ship->start.x < tx)vMeteors.push_back(dll::ObjectFactory(ttype, tx, ty, 0, 
+                    (float)(RandEngine(0, (int)(ground)))));
+                else vMeteors.push_back(dll::ObjectFactory(ttype, tx, ty, scr_width, (float)(RandEngine(0, (int)(ground)))));
+                break;
+
+            case 1:
+                if (Ship->start.y < tx)vMeteors.push_back(dll::ObjectFactory(ttype, tx, ty, (float)(RandEngine(0, 800)), sky));
+                else vMeteors.push_back(dll::ObjectFactory(ttype, tx, ty, (float)(RandEngine(0, 800)), ground));
+                break;
+            }
+        }
+    }
+
+    if (sound)mciSendString(L"olay .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    MessageBox(bHwnd, L"Играта е заредена!", L"Зареждане!", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -539,10 +858,10 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         AppendMenu(bMain, MF_SEPARATOR, NULL, NULL);
         AppendMenu(bMain, MF_STRING, mExit, L"Изход");
 
-        AppendMenu(bStore, MF_STRING, mNew, L"Запази игра");
-        AppendMenu(bStore, MF_STRING, mLvl, L"Зареди игра");
+        AppendMenu(bStore, MF_STRING, mSave, L"Запази игра");
+        AppendMenu(bStore, MF_STRING, mLoad, L"Зареди игра");
         AppendMenu(bStore, MF_SEPARATOR, NULL, NULL);
-        AppendMenu(bStore, MF_STRING, mExit, L"Зала на славата");
+        AppendMenu(bStore, MF_STRING, mHoF, L"Зала на славата");
         SetMenu(hwnd, bBar);
         InitGame();
         break;
@@ -687,6 +1006,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+        case mSave:
+            pause = true;
+            SaveGame();
+            pause = false;
+            break;
+
+        case mLoad:
+            pause = true;
+            LoadGame();
+            pause = false;
+            break;
+
+        case mHoF:
+            pause = true;
+            HallOfFame();
+            pause = false;
+            break;
         }
         break;
 
@@ -1644,6 +1980,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         
             if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
             else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
+        }
+
+        if (HgltBrush && nrmFormat)
+        {
+            wchar_t status_txt[200] = L"\0";
+            wchar_t add[5] = L"\0";
+            int txt_size = 0;
+
+            wcscpy_s(status_txt, current_player);
+
+            wsprintf(add, L"%d", level);
+            wcscat_s(status_txt, L", ниво: ");
+            wcscat_s(status_txt, add);
+
+            wsprintf(add, L"%d", score);
+            wcscat_s(status_txt, L", точки: ");
+            wcscat_s(status_txt, add);
+
+            wsprintf(add, L"%d", rockets);
+            wcscat_s(status_txt, L", ракети: ");
+            wcscat_s(status_txt, add);
+
+            wcscat_s(status_txt, L", време: ");
+            if (mins < 10)wcscat_s(status_txt, L"0");
+            wsprintf(add, L"%d", mins);
+            wcscat_s(status_txt, add);
+
+            wcscat_s(status_txt, L" : ");
+            if (secs - mins * 60 < 10)wcscat_s(status_txt, L"0");
+            wsprintf(add, L"%d", secs - mins * 60);
+            wcscat_s(status_txt, add);
+
+            for (int i = 0; i < 200; ++i)
+            {
+                if (status_txt[i] != '\0')txt_size++;
+                else break;
+            }
+
+            Draw->DrawTextW(status_txt, txt_size, nrmFormat, D2D1::RectF(20.0f, ground + 5.0f, scr_width, scr_height), HgltBrush);
         }
 
         if (Ship)
