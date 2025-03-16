@@ -77,6 +77,7 @@ int level = 1;
 int score = 0;
 int mins = 0;
 int secs = 0;
+int bonus = 0;
 
 ID2D1Factory* iFactory{ nullptr };
 ID2D1HwndRenderTarget* Draw{ nullptr };
@@ -210,8 +211,8 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 180;
-
-    rockets = 2;
+    bonus = 0;
+    rockets = 10;
 
     wcscpy_s(current_player, L"ONE CAPTAIN");
     ////////////////////////////////////////////
@@ -318,6 +319,172 @@ void GameOver()
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
 }
+void LevelUp()
+{
+    if (secs <= 0)bonus = level * 50;
+
+    if (bonus)
+    {
+        int intro_frame = 0;
+        int intro_frame_delay = 2;
+
+        int add_bonus = 0;
+
+        while (bonus > 0)
+        {
+            wchar_t bon_txt[50] = L"БОНУС: ";
+            wchar_t add[5] = L"\0";
+
+            if (Draw && bigFormat && HgltBrush)
+            {
+                int txt_size = 0;
+                
+                add_bonus += 10;
+                wsprintf(add, L"%d", add_bonus);
+                wcscat_s(bon_txt, add);
+                bonus -= 10;
+
+                for (int i = 0; i < 50; ++i)
+                {
+                    if (bon_txt[i] != '\0')txt_size++;
+                    else break;
+                }
+
+                if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+                Draw->BeginDraw();
+                Draw->DrawBitmap(bmpIntro[intro_frame], D2D1::RectF(0, 0, scr_width, scr_height));
+                Draw->DrawTextW(bon_txt, txt_size, bigFormat, D2D1::RectF(50.0f, 100.0f, scr_width, scr_height), HgltBrush);
+                intro_frame_delay--;
+                if (intro_frame_delay <= 0)
+                {
+                    intro_frame_delay = 2;
+                    ++intro_frame;
+                    if (intro_frame > 47)intro_frame = 0;
+                }
+                Draw->EndDraw();
+                Sleep(80);
+            }
+        }
+
+        if (sound)
+        {
+            PlaySound(NULL, NULL, NULL);
+            PlaySound(L".\\res\\snd\\boom.wav", NULL, SND_SYNC);
+            PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+        }
+    }
+
+    if (Draw && bigFormat && HgltBrush)
+    {
+        Draw->BeginDraw();
+        Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+        Draw->DrawTextW(L"НИВОТО ПРЕМИНАТО !", 19, bigFormat, D2D1::RectF(50.0f, 100.0f, scr_width, scr_height), HgltBrush);
+        Draw->EndDraw();
+        if (sound)
+        {
+            PlaySound(NULL, NULL, NULL);
+            PlaySound(L".\\res\\snd\\levelup.wav", NULL, SND_SYNC);
+            PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+        }
+    }
+
+    score += bonus;
+    level++;
+    mins = 0;
+    secs = 180 + 10 * level;
+    bonus = 0;
+    rockets = 10 + level;
+    
+    if (Field.Center)ClearHeap(&Field.Center);
+    if (Field.Up)ClearHeap(&Field.Up);
+    if (Field.Down)ClearHeap(&Field.Down);
+    if (Field.Left)ClearHeap(&Field.Left);
+    if (Field.Right)ClearHeap(&Field.Right);
+
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Center = dll::ObjectFactory(type_field1, 0, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Center = dll::ObjectFactory(type_field2, 0, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Center = dll::ObjectFactory(type_field3, 0, 50.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Up = dll::ObjectFactory(type_field1, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Up = dll::ObjectFactory(type_field2, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Up = dll::ObjectFactory(type_field3, 0, -scr_height + 100.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Down = dll::ObjectFactory(type_field1, 0, scr_height, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Down = dll::ObjectFactory(type_field2, 0, scr_height + 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Down = dll::ObjectFactory(type_field3, 0, scr_height, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Left = dll::ObjectFactory(type_field1, -scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Left = dll::ObjectFactory(type_field2, -scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Left = dll::ObjectFactory(type_field3, -scr_width, 50.0f, NULL, NULL);
+        break;
+    }
+    switch (RandEngine(0, 2))
+    {
+    case 0:
+        Field.Right = dll::ObjectFactory(type_field1, scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 1:
+        Field.Right = dll::ObjectFactory(type_field2, scr_width, 50.0f, NULL, NULL);
+        break;
+
+    case 2:
+        Field.Right = dll::ObjectFactory(type_field3, scr_width, 50.0f, NULL, NULL);
+        break;
+    }
+
+    field_dir = dirs::stop;
+
+    ///////////////////////////////////////////
+
+    ClearHeap(&Ship);
+    Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
+
+    if (!vMeteors.empty())for (int i = 0; i < vMeteors.size(); ++i)ClearHeap(&vMeteors[i]);
+    vMeteors.clear();
+
+    if (!vRockets.empty())for (int i = 0; i < vRockets.size(); ++i)ClearHeap(&vRockets[i]);
+    vRockets.clear();
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -402,6 +569,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         if (pause)break;
         secs--;
         mins = secs / 60;
+        if (secs <= 0)LevelUp();
         break;
 
     case WM_SETCURSOR:
@@ -511,7 +679,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 pause = false;
                 break;
             }
-            //LevelUp();
+            bonus = 0;
+            LevelUp();
             break;
 
         case mExit:
@@ -551,6 +720,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             break;
         }
         --rockets;
+        if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
         vRockets.push_back(dll::ObjectFactory(object_bullet, Ship->center.x, Ship->center.y,
             (float)(LOWORD(lParam)), (float)(HIWORD(lParam))));
         break;
