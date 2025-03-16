@@ -138,6 +138,8 @@ std::vector<dll::DLLObject>vExplosions;
 int rockets = 2;
 bool ship_killed = false;
 
+dll::DLLObject Earth{ nullptr };
+
 /////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -297,6 +299,8 @@ void InitGame()
     field_dir = dirs::stop;
     
     ///////////////////////////////////////////
+
+    ClearHeap(&Earth);
 
     ClearHeap(&Ship);
     Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
@@ -539,6 +543,8 @@ void LevelUp()
 
     ///////////////////////////////////////////
 
+    ClearHeap(&Earth);
+
     ClearHeap(&Ship);
     Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
 
@@ -630,6 +636,16 @@ void SaveGame()
             save << vMeteors[i]->GetType() << std::endl;
         }
     }
+
+    if (Earth)
+    {
+        save << 1 << std::endl;
+        save << Earth->start.x << std::endl;
+        save << Earth->start.y << std::endl;
+    }
+    else save << 0 << std::endl;
+
+    save.close();
 
     if (sound)mciSendString(L"olay .\\res\\snd\\save.wav", NULL, NULL, NULL);
     MessageBox(bHwnd, L"Играта е запазена!", L"Запис!", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
@@ -733,6 +749,8 @@ void LoadGame()
 
     ///////////////////////////////////////////
 
+    ClearHeap(&Earth);
+
     ClearHeap(&Ship);
     Ship = dll::ObjectFactory(object_ship, 100.0f, (float)(RandEngine(50, 600)), NULL, NULL);
 
@@ -801,7 +819,19 @@ void LoadGame()
         }
     }
 
-    if (sound)mciSendString(L"olay .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    save >> result;
+    if (result > 0)
+    {
+        float tx = 0;
+        float ty = 0;
+        save >> tx;
+        save >> ty;
+
+        Earth = dll::ObjectFactory(object_earth, tx, ty, NULL, NULL);
+    }
+
+    save.close();
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
     MessageBox(bHwnd, L"Играта е заредена!", L"Зареждане!", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
 
@@ -886,9 +916,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         if (pause)break;
-        secs--;
-        mins = secs / 60;
-        if (secs <= 0)LevelUp();
+        if (secs > 0)
+        {
+            secs--;
+            mins = secs / 60;
+        }
+        else if (!Earth)Earth = dll::ObjectFactory(object_earth, scr_width, (float)(RandEngine(50, 600)), NULL, NULL);
         break;
 
     case WM_SETCURSOR:
@@ -1050,15 +1083,50 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     case WM_LBUTTONDOWN:
         if (pause || !Ship)break;
-        if (rockets < 1)
+        if (HIWORD(lParam) <= 50)
         {
-            if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-            break;
+            if (LOWORD(lParam) >= b1TxtRect.left && LOWORD(lParam) <= b1TxtRect.right)
+            {
+                if (name_set)
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                    break;
+                }
+                pause = true;
+                if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+                pause = false;
+                break;
+            }
+
+            if (LOWORD(lParam) >= b2TxtRect.left && LOWORD(lParam) <= b2TxtRect.right)
+            {
+                if (sound)
+                {
+                    sound = false;
+                    PlaySound(NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    sound = true;
+                    PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+                    break;
+                }
+            }
         }
-        --rockets;
-        if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
-        vRockets.push_back(dll::ObjectFactory(object_bullet, Ship->center.x, Ship->center.y,
-            (float)(LOWORD(lParam)), (float)(HIWORD(lParam))));
+        else
+        {
+            if (rockets < 1)
+            {
+                if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                break;
+            }
+            --rockets;
+            if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
+            vRockets.push_back(dll::ObjectFactory(object_bullet, Ship->center.x, Ship->center.y,
+                (float)(LOWORD(lParam)), (float)(HIWORD(lParam))));
+        }
         break;
 
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
@@ -1512,6 +1580,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     CreateResources();
 
+    PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+
     while (bMsg.message != WM_QUIT)
     {
         if ((bRet = PeekMessage(&bMsg, bHwnd, NULL, NULL, PM_REMOVE)) != 0)
@@ -1853,6 +1923,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Earth && Ship)
+        {
+            Earth->Move(dirs::left, (float)(level));
+
+            if (abs(Earth->center.x - Ship->center.x) <= Earth->Xradius + Ship->Xradius
+                && abs(Earth->center.y - Ship->center.y) <= Earth->Yradius + Ship->Yradius)LevelUp();
+        }
+
         // DRAW THINGS ***************************************************
 
         Draw->BeginDraw();
@@ -2110,6 +2188,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             }
         }
+
+        if (Earth)Draw->DrawBitmap(bmpEarth[Earth->GetFrame()], D2D1::RectF(Earth->start.x, Earth->start.y,
+            Earth->end.x, Earth->end.y));
 
         /////////////////////////////////////////////////////////////////
 
