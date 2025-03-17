@@ -1,3 +1,5 @@
+//DEV. DANIEL DINEV ver 2025
+
 #include "framework.h"
 #include "JOURNEY TO HOME.h"
 #include <mmsystem.h>
@@ -26,7 +28,7 @@ constexpr wchar_t Ltmp_file[](L".\\res\\data\\temp.dat");
 constexpr wchar_t record_file[](L".\\res\\data\\record.dat");
 constexpr wchar_t save_file[](L".\\res\\data\\save.dat");
 constexpr wchar_t help_file[](L".\\res\\data\\help.dat");
-constexpr wchar_t sound_file[](L".\\res\\data\\main.wav");
+constexpr wchar_t sound_file[](L".\\res\\snd\\main.wav");
 
 constexpr int mNew{ 1001 };
 constexpr int mLvl{ 1002 };
@@ -217,6 +219,8 @@ void InitGame()
     rockets = 10;
 
     wcscpy_s(current_player, L"ONE CAPTAIN");
+    name_set = false;
+
     ////////////////////////////////////////////
 
     if (Field.Center)ClearHeap(&Field.Center);
@@ -834,6 +838,57 @@ void LoadGame()
     if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
     MessageBox(bHwnd, L"Играта е заредена!", L"Зареждане!", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
+void ShowHelp()
+{
+    Draw->EndDraw();
+    int result = 0;
+    CheckFile(help_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Липсва помощ за играта !\n\nСвържете се с разработчика !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    wchar_t help_txt[1000] = L"\0";
+    std::wifstream help(help_file);
+    help >> result;
+    for (int i = 0; i < result; ++i)
+    {
+        int letter = 0;
+        help >> letter;
+        help_txt[i] = static_cast<wchar_t>(letter);
+    }
+    help.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\help.wav", NULL, NULL, NULL);
+
+    Draw->BeginDraw();
+    Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+    if(TxtBrush && HgltBrush && InactBrush && nrmFormat && b1BckgBrush && b2BckgBrush && b3BckgBrush)
+    {
+        Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1BckgBrush);
+        Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2BckgBrush);
+        Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3BckgBrush);
+
+        if (name_set) Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, InactBrush);
+        else
+        {
+            if (!b1Hglt)Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, TxtBrush);
+            else Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmFormat, b1TxtRect, HgltBrush);
+        }
+
+        if (!b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, TxtBrush);
+        else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, HgltBrush);
+
+        if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
+        else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
+    }
+    if (HgltBrush && midFormat)
+        Draw->DrawTextW(help_txt, result, midFormat, D2D1::RectF(30.0f, 200.0f, scr_width, scr_height), HgltBrush);
+    Draw->EndDraw();
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1020,8 +1075,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             InitGame();
             break;
 
-            break;
-
         case mLvl:
             pause = true;
             if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
@@ -1082,7 +1135,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_LBUTTONDOWN:
-        if (pause || !Ship)break;
+        if (!Ship)break;
         if (HIWORD(lParam) <= 50)
         {
             if (LOWORD(lParam) >= b1TxtRect.left && LOWORD(lParam) <= b1TxtRect.right)
@@ -1098,7 +1151,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 pause = false;
                 break;
             }
-
             if (LOWORD(lParam) >= b2TxtRect.left && LOWORD(lParam) <= b2TxtRect.right)
             {
                 if (sound)
@@ -1111,6 +1163,22 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 {
                     sound = true;
                     PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+                    break;
+                }
+            }
+            if (LOWORD(lParam) >= b3TxtRect.left && LOWORD(lParam) <= b3TxtRect.right)
+            {
+                if (!show_help)
+                {
+                    show_help = true;
+                    ShowHelp();
+                    pause = true;
+                    break;
+                }
+                else
+                {
+                    show_help = false;
+                    pause = false;
                     break;
                 }
             }
@@ -1526,7 +1594,7 @@ void CreateResources()
                 DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"", &nrmFormat);
 
             hr = iWriteFactory->CreateTextFormat(L"SEGOE PRINT", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
-                DWRITE_FONT_STRETCH_NORMAL, 48.0f, L"", &midFormat);
+                DWRITE_FONT_STRETCH_NORMAL, 24.0f, L"", &midFormat);
 
             hr = iWriteFactory->CreateTextFormat(L"SEGOE PRINT", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
                 DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigFormat);
@@ -1927,8 +1995,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             Earth->Move(dirs::left, (float)(level));
 
-            if (abs(Earth->center.x - Ship->center.x) <= Earth->Xradius + Ship->Xradius
-                && abs(Earth->center.y - Ship->center.y) <= Earth->Yradius + Ship->Yradius)LevelUp();
+            if (abs(Earth->center.x - Ship->center.x) <= Earth->Xradius / 4 + Ship->Xradius
+                && abs(Earth->center.y - Ship->center.y) <= Earth->Yradius / 4 + Ship->Yradius)LevelUp();
         }
 
         // DRAW THINGS ***************************************************
@@ -2099,6 +2167,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             Draw->DrawTextW(status_txt, txt_size, nrmFormat, D2D1::RectF(20.0f, ground + 5.0f, scr_width, scr_height), HgltBrush);
         }
 
+        if (Earth)Draw->DrawBitmap(bmpEarth[Earth->GetFrame()], D2D1::RectF(Earth->start.x, Earth->start.y,
+            Earth->end.x, Earth->end.y));
+        
         if (Ship)
         {
             int curr_frame = Ship->GetFrame();
@@ -2188,9 +2259,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             }
         }
-
-        if (Earth)Draw->DrawBitmap(bmpEarth[Earth->GetFrame()], D2D1::RectF(Earth->start.x, Earth->start.y,
-            Earth->end.x, Earth->end.y));
 
         /////////////////////////////////////////////////////////////////
 
